@@ -9,14 +9,14 @@ import { ShareModule } from './shared/share.module';
 @Module({
   imports: [TodoModule, ShareModule],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, ConfigurationService],
 })
 export class AppModule {
   static host: string;
   static port: number | string;
   static isDev: boolean;
 
-  constructor(private readonly _configurationService: ConfigurationService) {
+  constructor(_configurationService: ConfigurationService) {
       AppModule.port = AppModule.normalizePort(_configurationService.get(Configuration.PORT));
       AppModule.host = _configurationService.get(Configuration.HOST);
       AppModule.isDev = _configurationService.isDevelopment;

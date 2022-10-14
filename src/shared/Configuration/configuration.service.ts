@@ -1,12 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import { get } from 'config';
+require('dotenv').config()
 
 @Injectable()
 export class ConfigurationService {
     private environmentHosting: string = process.env.NODE_ENV || 'development';
 
     get(name: string): string {
-        return process.env[name] || get(name);
+        console.log('process.env[name]: ', process.env.PORT)
+        console.log('process.env[name]: ', process.env.HOST)
+        console.log('process.env[name]: ', process.env.MONGO_URI)
+        console.log('process.env[name]: ', process.env.PORT)
+
+        return process.env[name];
     }
 
     get isDevelopment(): boolean {

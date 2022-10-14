@@ -30,32 +30,144 @@ export abstract class BaseService<T extends Typegoose> {
     //     return this._mapper.mapArray<T, K>(object as T[], source, destination)
     // }
 
-    async findAll(filter = {}): Promise<InstanceType<T>[]> {
-        return this._model.find(filter).exec();
+    findAll(options = {}): Promise<InstanceType<T>[]> {
+        const newOptions = Object.assign(
+            {
+                isLean: true,
+                field: '',
+                populate: [],
+                sort: '',
+                where: {}
+            },
+            options
+        )
+        newOptions.where = Object.assign({ isDeleted: false }, newOptions.where);
+        return this._model
+            .find(newOptions.where)
+            .select(newOptions.field)
+            .sort(newOptions.populate)
+            .lean(newOptions.isLean)
+            .exec();
     }
 
-    async findOne(filter = {}): Promise<InstanceType<T>> {
-        return this._model.findOne(filter).exec();
+    findOne(options = {}): Promise<InstanceType<T>> {
+        const newOptions = Object.assign(
+            {
+                isLean: true,
+                field: '',
+                populate: [],
+                sort: '',
+                where: {}
+            },
+            options
+        )
+        newOptions.where = Object.assign({ isDeleted: false }, newOptions.where);
+        return this._model
+            .findOne(newOptions.where)
+            .select(newOptions.field)
+            .sort(newOptions.populate)
+            .lean(newOptions.isLean)
+            .exec();
     }
 
-    async findById(id: string): Promise<InstanceType<T>> {
-        return this._model.findById(this.toObjectId(id)).exec();
+    findById(id: string, options = {}): Promise<InstanceType<T>> {
+        const newOptions = Object.assign(
+            {
+                isLean: true,
+                field: '',
+                populate: [],
+                sort: '',
+                where: {}
+            },
+            options
+        )
+        newOptions.where = Object.assign({ isDeleted: false }, newOptions.where);
+        return this._model
+            .findById(this.toObjectId(id))
+            .select(newOptions.field)
+            .sort(newOptions.populate)
+            .lean(newOptions.isLean)
+            .exec();
     }
 
-    async create(item: InstanceType<T>): Promise<InstanceType<T>> {
+    create(item: InstanceType<T> | InstanceType<T>[]): Promise<InstanceType<T> | InstanceType<T>[]> {
+        if(Array.isArray(item)) {
+            return this._model.insertMany(item);
+        }
         return this._model.create(item);
     }
 
-    async delete(id: string): Promise<InstanceType<T>> {
+    delete(id: string): Promise<InstanceType<T>> {
         return this._model.findByIdAndRemove(this.toObjectId(id)).exec();
     }
 
-    async update(id: string, item: InstanceType<T>): Promise<InstanceType<T>> {
-        return this._model.findOneAndUpdate(this.toObjectId(id), item, { new: true }).exec();
+    findOneAndUpdate(options: InstanceType<T>): Promise<InstanceType<T>> {
+        const newOptions = Object.assign(
+            {
+                isLean: true,
+                where: {},
+                options: {},
+                data: {}
+            },
+            options
+        )
+        newOptions.where = Object.assign({ isDeleted: false }, newOptions.where);
+        newOptions.options = Object.assign({}, { new: true }, newOptions.options);
+
+        return this._model
+            .findOneAndUpdate(newOptions.where, newOptions.data, newOptions.options)
+            .lean(newOptions.isLean)
+            .exec();
     }
 
-    async clearCollection(filter = {}): Promise<{ ok?: number; n?: number; }> {
+    clearCollection(filter = {}): Promise<{ ok?: number; n?: number; }> {
         return this._model.deleteMany(filter).exec();
+    }
+
+    count(options: {}) {
+        const newOption = Object.assign({ isDeleted: false }, options);
+        return this._model.countDocuments(newOption).exec();
+    }
+
+    async updateOne(options: {}) {
+        const newOption = { ...options, where: {}, options: {}, data: {} };
+        newOption.where = Object.assign({}, {}, newOption.where);
+        newOption.options = Object.assign({}, { new: true }, newOption.options);
+
+        return this._model.updateOne(newOption.where, newOption.data, newOption.options).exec();
+
+    }
+
+    updateMany(options: {}) {
+        const newOption = { ...options, where: {}, options: {}, data: {} };
+        newOption.where = Object.assign({}, {}, newOption.where);
+        newOption.options = Object.assign({}, { new: true }, newOption.options);
+
+        return this._model.updateMany(newOption.where, newOption.data, newOption.options).exec();
+
+    }
+
+    aggregatePaging(aggregateCondition: [], limit: number, page: number) {
+        if (!limit || limit) {
+            limit = 100;
+        }
+
+        if (page || page < 1) {
+            page = 1;
+        }
+
+        aggregateCondition.map(item => {
+            if (item['match']) {
+               Object.assign(item['match'], { isDeleted: false })
+            }
+            return item;
+        });
+
+        const skip = (page - 1) * limit;
+        return Promise.all([
+            this._model.aggregate([...aggregateCondition, { $count: 'totalRecord' }]),
+            this._model.aggregate([...aggregateCondition, { $skip: skip, $limit: limit }])
+        ]);
     }
 
     private toObjectId(id: string): Types.ObjectId {
